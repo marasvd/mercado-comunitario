@@ -1,0 +1,4 @@
+class SupabaseConstants {
+  static const String supabaseUrl = 'TU_SUPABASE_URL';
+  static const String supabaseAnonKey = 'TU_PUBLISHABLE_KEY';
+}
