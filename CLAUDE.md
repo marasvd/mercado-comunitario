@@ -489,14 +489,14 @@ La validación de permisos ocurre en dos capas:
 ### Helper functions — Extraer datos del JWT
 
 ```sql
-CREATE OR REPLACE FUNCTION auth.user_role()
-RETURNS user_role AS $$
-  SELECT (auth.jwt() -> 'user_metadata' ->> 'role')::user_role;
+CREATE OR REPLACE FUNCTION public.get_user_role()
+RETURNS text AS $$
+  SELECT (auth.jwt() -> 'user_metadata' ->> 'role')::text;
 $$ LANGUAGE sql STABLE SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION auth.user_cedula()
-RETURNS TEXT AS $$
-  SELECT (auth.jwt() -> 'user_metadata' ->> 'cedula')::TEXT;
+CREATE OR REPLACE FUNCTION public.get_user_cedula()
+RETURNS text AS $$
+  SELECT (auth.jwt() -> 'user_metadata' ->> 'cedula')::text;
 $$ LANGUAGE sql STABLE SECURITY DEFINER;
 ```
 
@@ -510,18 +510,18 @@ enviado por el cliente.
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "users_select" ON users FOR SELECT USING (
-  auth.user_role() IN ('ADMINISTRADOR', 'ASISTENTE')
-  OR cedula = auth.user_cedula()
+  public.get_user_role() IN ('ADMINISTRADOR', 'ASISTENTE')
+  OR cedula = public.get_user_cedula()
 );
 
 CREATE POLICY "users_insert" ON users FOR INSERT WITH CHECK (
-  auth.user_role() IN ('ADMINISTRADOR', 'ASISTENTE')
+  public.get_user_role() IN ('ADMINISTRADOR', 'ASISTENTE')
 );
 
 -- Solo el admin puede modificar usuarios (incluyendo is_active).
 -- El asistente puede editar full_name y phone, validar en repository layer.
 CREATE POLICY "users_update" ON users FOR UPDATE USING (
-  auth.user_role() = 'ADMINISTRADOR'
+  public.get_user_role() = 'ADMINISTRADOR'
 );
 
 -- Sin DELETE: soft delete con is_active = false. Nunca DELETE físico.
@@ -532,11 +532,11 @@ CREATE POLICY "users_update" ON users FOR UPDATE USING (
 ALTER TABLE jornadas ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "jornadas_admin_asistente" ON jornadas FOR ALL USING (
-  auth.user_role() IN ('ADMINISTRADOR', 'ASISTENTE')
+  public.get_user_role() IN ('ADMINISTRADOR', 'ASISTENTE')
 );
 
 CREATE POLICY "jornadas_beneficiario_select" ON jornadas FOR SELECT USING (
-  auth.user_role() = 'BENEFICIARIO'
+  public.get_user_role() = 'BENEFICIARIO'
   AND status = 'ACTIVA'
   AND id IN (
     SELECT jornada_id FROM jornada_beneficiarios
@@ -550,18 +550,18 @@ CREATE POLICY "jornadas_beneficiario_select" ON jornadas FOR SELECT USING (
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "orders_select" ON orders FOR SELECT USING (
-  auth.user_role() IN ('ADMINISTRADOR', 'ASISTENTE')
+  public.get_user_role() IN ('ADMINISTRADOR', 'ASISTENTE')
   OR user_id = auth.uid()
 );
 
 CREATE POLICY "orders_insert" ON orders FOR INSERT WITH CHECK (
-  auth.user_role() IN ('ADMINISTRADOR', 'ASISTENTE')
+  public.get_user_role() IN ('ADMINISTRADOR', 'ASISTENTE')
   OR user_id = auth.uid()
 );
 
 -- Solo el admin cambia payment_status. Pedidos inmutables para beneficiarios.
 CREATE POLICY "orders_update" ON orders FOR UPDATE USING (
-  auth.user_role() = 'ADMINISTRADOR'
+  public.get_user_role() = 'ADMINISTRADOR'
 );
 
 -- Sin DELETE: los pedidos nunca se eliminan.
@@ -581,11 +581,11 @@ CREATE POLICY "reservations_owner" ON stock_reservations FOR ALL USING (
 ALTER TABLE additional_products ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "products_admin_asistente" ON additional_products FOR ALL USING (
-  auth.user_role() IN ('ADMINISTRADOR', 'ASISTENTE')
+  public.get_user_role() IN ('ADMINISTRADOR', 'ASISTENTE')
 );
 
 CREATE POLICY "products_beneficiario_select" ON additional_products FOR SELECT USING (
-  auth.user_role() = 'BENEFICIARIO'
+  public.get_user_role() = 'BENEFICIARIO'
   AND jornada_id IN (
     SELECT jb.jornada_id FROM jornada_beneficiarios jb
     JOIN jornadas j ON j.id = jb.jornada_id
@@ -599,11 +599,11 @@ CREATE POLICY "products_beneficiario_select" ON additional_products FOR SELECT U
 ALTER TABLE kits ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "kits_admin_asistente" ON kits FOR ALL USING (
-  auth.user_role() IN ('ADMINISTRADOR', 'ASISTENTE')
+  public.get_user_role() IN ('ADMINISTRADOR', 'ASISTENTE')
 );
 
 CREATE POLICY "kits_beneficiario_select" ON kits FOR SELECT USING (
-  auth.user_role() = 'BENEFICIARIO'
+  public.get_user_role() = 'BENEFICIARIO'
   AND jornada_id IN (
     SELECT jb.jornada_id FROM jornada_beneficiarios jb
     JOIN jornadas j ON j.id = jb.jornada_id
@@ -617,12 +617,12 @@ CREATE POLICY "kits_beneficiario_select" ON kits FOR SELECT USING (
 ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "order_items_select" ON order_items FOR SELECT USING (
-  auth.user_role() IN ('ADMINISTRADOR', 'ASISTENTE')
+  public.get_user_role() IN ('ADMINISTRADOR', 'ASISTENTE')
   OR order_id IN (SELECT id FROM orders WHERE user_id = auth.uid())
 );
 
 CREATE POLICY "order_items_insert" ON order_items FOR INSERT WITH CHECK (
-  auth.user_role() IN ('ADMINISTRADOR', 'ASISTENTE')
+  public.get_user_role() IN ('ADMINISTRADOR', 'ASISTENTE')
   OR order_id IN (SELECT id FROM orders WHERE user_id = auth.uid())
 );
 -- Sin UPDATE ni DELETE: order_items son inmutables.
@@ -633,7 +633,7 @@ CREATE POLICY "order_items_insert" ON order_items FOR INSERT WITH CHECK (
 ALTER TABLE jornada_beneficiarios ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "jornada_beneficiarios_admin" ON jornada_beneficiarios FOR ALL USING (
-  auth.user_role() IN ('ADMINISTRADOR', 'ASISTENTE')
+  public.get_user_role() IN ('ADMINISTRADOR', 'ASISTENTE')
 );
 ```
 
@@ -656,7 +656,7 @@ VALUES ('vouchers', 'vouchers', false);
 -- Solo admin y asistente leen comprobantes
 CREATE POLICY "vouchers_read" ON storage.objects FOR SELECT USING (
   bucket_id = 'vouchers'
-  AND auth.user_role() IN ('ADMINISTRADOR', 'ASISTENTE')
+  AND public.get_user_role() IN ('ADMINISTRADOR', 'ASISTENTE')
 );
 
 -- El beneficiario sube solo en su propia carpeta: vouchers/{user_id}/
