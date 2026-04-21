@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/domain/auth_models.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
+import '../../features/jornadas/presentation/screens/jornada_activa_screen.dart';
+import '../../features/jornadas/presentation/screens/jornada_detalle_screen.dart';
 
 // ---------------------------------------------------------------------------
 // RouterNotifier — puente entre Riverpod y GoRouter.refreshListenable
@@ -86,8 +88,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: _beneficiarioPath,
-        builder: (_, _) =>
-            const _PlaceholderScreen(title: 'Mi Jornada'),
+        builder: (_, _) => const JornadaActivaScreen(),
+        routes: [
+          GoRoute(
+            path: 'jornada/:jornadaId',
+            builder: (_, state) => JornadaDetalleScreen(
+              jornadaId: state.pathParameters['jornadaId']!,
+              jornadaNombre:
+                  state.uri.queryParameters['nombre'] ?? 'Jornada',
+            ),
+          ),
+        ],
       ),
     ],
   );
